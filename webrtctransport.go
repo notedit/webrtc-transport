@@ -7,37 +7,6 @@ import (
 	"github.com/pion/webrtc/v2/internal/mux"
 )
 
-var Capabilities = map[string]*sdp.Capability{
-	"audio": &sdp.Capability{
-		Codecs: []string{"opus"},
-	},
-	"video": &sdp.Capability{
-		Codecs: []string{"h264"},
-		Rtx:    true,
-		Rtcpfbs: []*sdp.RtcpFeedback{
-			&sdp.RtcpFeedback{
-				ID: "transport-cc",
-			},
-			&sdp.RtcpFeedback{
-				ID:     "ccm",
-				Params: []string{"fir"},
-			},
-			&sdp.RtcpFeedback{
-				ID:     "nack",
-				Params: []string{"pli"},
-			},
-		},
-		Extensions: []string{
-			"urn:3gpp:video-orientation",
-			"http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
-			"http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time",
-			"urn:ietf:params:rtp-hdrext:toffse",
-			"urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id",
-			"urn:ietf:params:rtp-hdrext:sdes:mid",
-		},
-	},
-}
-
 var api = webrtc.NewAPI()
 
 type WebRTCTansport struct {
@@ -144,12 +113,28 @@ func (t *WebRTCTansport) SetRemoteICEInfo(ice *sdp.ICEInfo) error {
 		Password:         ice.GetPassword(),
 		ICELite:          false,
 	}
-
 	iceRole := webrtc.ICERoleControlling
-
 	err := t.iceTransport.Start(nil, iceParams, &iceRole)
-
 	return err
+}
+
+func (t *WebRTCTansport) AddRemoteCandidate(candidate *sdp.CandidateInfo) {
+
+	protocol, _ := webrtc.NewICEProtocol(candidate.GetTransport())
+	typ, _ := webrtc.NewICECandidateType(candidate.GetType())
+
+	can := webrtc.ICECandidate{
+		Foundation: candidate.GetFoundation(),
+		Priority:   uint32(candidate.GetPriority()),
+		Address:    candidate.GetAddress(),
+		Protocol:   protocol,
+		Port:       uint16(candidate.GetPort()),
+		Component:  uint16(candidate.GetComponentID()),
+		Typ:        typ,
+	}
+
+	t.iceTransport.AddRemoteCandidate(can)
+
 }
 
 func (t *WebRTCTansport) SetRemoteDTLSInfo(dtls *sdp.DTLSInfo) error {
